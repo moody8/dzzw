@@ -16,7 +16,59 @@ jQuery(function($){
 	customBtn = $('#customBtn'),
 	customAuthorityDialog = $('#customAuthorityDialog'),
 	deleteOrganizationBtn = $('#deleteOrganizationBtn'),
+	upBtn = $('#upBtn'),
+	downBtn = $('#downBtn'),
 	organizationTree,
+	//管理上移、下移按钮
+	manageUpAndDown = function(node){
+		var id = node.attr('id'),
+		customAttr = 'data-current-node-id';
+		if(organizationTree.isOnlyChild(node)){
+			C.forbiddenBtn(upBtn);
+			C.forbiddenBtn(downBtn);
+		}
+		else if(organizationTree.isLastChild(node)){
+			C.activateBtn(upBtn);
+			upBtn.attr(customAttr,id);
+			C.forbiddenBtn(downBtn);
+		}
+		else if(organizationTree.isFirstChild(node)){
+			C.forbiddenBtn(upBtn);
+			C.activateBtn(downBtn);
+			downBtn.attr(customAttr,id);
+		}
+		else{
+			C.activateBtn(upBtn);
+			upBtn.attr(customAttr,id);
+			C.activateBtn(downBtn);
+			downBtn.attr(customAttr,id);
+		}
+	},
+	//移动组织节点
+	moveNode = function(id,isUp){
+		var config = G.ajaxConfig['moveOrganization'],
+		url = config.url,
+		param = config.param,
+		node;
+		param['organizationId'] = id;
+		param['direction'] = isUp?-1:1;
+		$.ajax({
+			url : url,
+			data : param,
+			dataType : 'json'
+		}).done(function(o){
+			if(o && o.isSuccess){
+				node = organizationTree.getNodeById(id);
+				if(isUp){
+					organizationTree.shiftUp(node);
+				}
+				else{
+					organizationTree.shiftDown(node);
+				}
+				manageUpAndDown(node);
+			}
+		});
+	},
 	getOrganizationDetail = function(e){
 		e.preventDefault();
 		var that = this,
@@ -39,6 +91,7 @@ jQuery(function($){
 				showOrganizationDetail(data);
 			}
 		});
+		manageUpAndDown(node);
 	},
 	showOrganizationDetail = function(o){
 		organizationId.val(o['id'] || '');
@@ -60,7 +113,7 @@ jQuery(function($){
 			var data;
 			if(o && o.isSuccess){
 				data = o.data;
-				organizationTree = new Energon.ui.selectableWithSingleTree({
+				organizationTree = new Energon.ui.selectableWithDynamicTree({
 					container : organizationTreeContainer,
 					content : data,
 					clickEvent : getOrganizationDetail
@@ -111,6 +164,26 @@ jQuery(function($){
 					removeOrganizations(ids);
 				}
 			}
+		});
+		upBtn.on('click',function(e){
+			e.preventDefault();
+			var el = $(this),
+			currentNodeId = el.attr('data-current-node-id'),
+			isDisabled = el.attr('disabled');
+			if(isDisabled){
+				return;
+			}
+			moveNode(currentNodeId,true);
+		});
+		downBtn.on('click',function(e){
+			e.preventDefault();
+			var el = $(this),
+			currentNodeId = el.attr('data-current-node-id'),
+			isDisabled = el.attr('disabled');
+			if(isDisabled){
+				return;
+			}
+			moveNode(currentNodeId,false);
 		});
 	}();
 });
